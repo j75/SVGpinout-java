@@ -16,7 +16,7 @@ The pin lines equals the number of the pins defined in package file.
 ---------
 
 In addition to porting the code to Java, I just wanted to see how perform the Java version
-in comparison with the Python version; using [Graal VM](https://www.graalvm.org/).
+in comparison with the Python version using [Graal VM](https://www.graalvm.org/).
 I also compared the native  executable with the Python and Java versions.
 
 ## Building the project
@@ -45,12 +45,11 @@ There is also defined in **pom.xml** a `native-liberica` profile as options diff
 
 To generate the file `reachability-metadata.json` one should use
 ```shell
-$ ${GRAALVM_HOME}/bin/java -agentlib:native-image-agent=config-output-dir=src/main/resources/META-INF/native-image/svgpino
-ut/svgpinout/ \
+$ ${GRAALVM_HOME}/bin/java \
+  -agentlib:native-image-agent=config-output-dir=src/main/resources/META-INF/native-image/svgpinout/svgpinout/ \
   -jar target/svgpinout.jar <pinout csv file>
 ```
-Please also read[GraalVM Native Image Agent — reachability metadata: how to run it, where files go](https://dev.to/ozkanpa
-kdil/graalvm-native-image-agent-reachability-metadata-how-to-run-it-where-files-go-45c1)
+Please also read[GraalVM Native Image Agent — reachability metadata: how to run it, where files go](https://dev.to/ozkanpakdil/graalvm-native-image-agent-reachability-metadata-how-to-run-it-where-files-go-45c1)
 
 ## Running the artifacts
 To run the executable jar:
