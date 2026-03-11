@@ -9,7 +9,7 @@ with some small improvements:
 - several new options
 
 A chip package file is a CSV file that has the following structure:
-- first line: Chip name, output file name, package, logo file name
+- first line: Chip name, Output file name, Package, Logo file name
 - pin lines: Pin name, Type, Direction (IN, OUT, BIDIR, or nothing)
 
 The pin lines equals the number of the pins defined in package file.
@@ -63,15 +63,15 @@ $ target/svgpinout <csv file>
 ```
 
 The following options are supported:
-- **-o** | **--outdir** `<outdir>` = SVG file output directory
-- **-l** | **--logodir** `<logodir>` = alternate logos directory
+- **-o** | **--outdir** `<outdir>` = SVG file output directory(otherwise the current folder will be used)
+- **-l** | **--logodir** `<logodir>` = alternate logos directory (if a new chip requires it)
 - **-n** | **--nologo** = no logo embedded in the SVG file (useful for comparison with the Python version that does not insert the logo)
 - **-p** | **--packages** `<alternate packages.csv file>` = if you have a new package, you may describe it here
-- **-d** | **--display** = display embedded **packages.csv**
-- **-b** | **--loop** = run in loop
+- **-d** | **--display** = display embedded **packages.csv** content
+- **-b** | **--loop** = run in loop (useful to see if there are memory leaks)
 - **-r** | **--repeat** <# of times> (should be > 0)
-- **-s** | **--statistics** = at the end display some statistics
-- **-h** | **--help** = display help
+- **-s** | **--statistics** = display some statistics after finishing the program execution
+- **-h** | **--help** = display this help
 
 To display more debug messages, add the option `-Dorg.slf4j.simpleLogger.defaultLogLevel=debug`.
 Other options for `SLF4J simple`:
@@ -102,4 +102,4 @@ loops - after, running `java -jar` is faster!
 
 ![java_native-1500.png](img/java_native-1500.png)
 
-I cannot explain the results, unless if my scripts are somehow flawed.
+I cannot explain the results, unless if my scripts are somehow flawed!
