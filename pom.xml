@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>svgpinout</groupId>
+    <artifactId>svgpinout</artifactId>
+    <version>0.1-SNAPSHOT</version>
+
+    <description>Generates a .svg pinout from a .csv file</description>
+    <inceptionYear>2026</inceptionYear>
+
+    <properties>
+        <slf4j.version>2.1.0-alpha1</slf4j.version> <!-- 2.0.17 -->
+        <batik.version>1.19</batik.version>
+        <apache-tika.version>3.2.3</apache-tika.version>
+        <commons-cli.version>1.11.0</commons-cli.version>
+
+        <junit-jupiter.version>6.1.0-M1</junit-jupiter.version>
+        <mockito.version>2.0.2-beta</mockito.version>
+
+        <native.maven.plugin.version>0.11.4</native.maven.plugin.version>
+        <maven-assembly-plugin.version>3.8.0</maven-assembly-plugin.version>
+        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version> <!-- 4.0.0-beta-1 requires maven 4.x -->
+        <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
+        <maven-enforcer-plugin.version>3.6.2</maven-enforcer-plugin.version>
+        <maven-failsafe-plugin.version>3.5.4</maven-failsafe-plugin.version>
+        <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
+
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <mainClass>eu.f.m.SVGpinout</mainClass>
+        <imageName>${project.artifactId}</imageName>
+
+        <jvm.add.opens>
+            --add-opens java.base/jdk.internal.ref=ALL-UNNAMED
+            --add-opens java.base/java.lang=ALL-UNNAMED
+        </jvm.add.opens>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>batik-dom</artifactId>
+            <version>${batik.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>batik-anim</artifactId>
+            <version>${batik.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>batik-svg-dom</artifactId>
+            <version>${batik.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>batik-xml</artifactId>
+            <version>${batik.version}</version>
+        </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.tika/tika-parsers -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>${apache-tika.version}</version>
+            <!--
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+            -->
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-cli</groupId>
+            <artifactId>commons-cli</artifactId>
+            <version>${commons-cli.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+           <groupId>org.mockito</groupId>
+           <artifactId>mockito-all</artifactId>
+           <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <finalName>${project.artifactId}</finalName>
+
+        <plugins>
+            <plugin>
+             <groupId>org.apache.maven.plugins</groupId>
+             <artifactId>maven-jar-plugin</artifactId>
+             <version>${maven-jar-plugin.version}</version>
+             <configuration>
+                 <archive>
+                     <manifest>
+                         <addClasspath>true</addClasspath>
+                         <classpathPrefix>libs/</classpathPrefix>
+                         <mainClass>${mainClass}</mainClass>
+                     </manifest>
+                 </archive>
+             </configuration>
+         </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                    <goals>
+                        <goal>shade</goal>
+                    </goals>
+                    <configuration>
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>**/*pom.xml*</exclude>
+                                    <exclude>**/*pom.properties*</exclude>
+                                    <exclude>**/META-INF/LICENSE*</exclude>
+                                    <exclude>**/META-INF/NOTICE*</exclude>
+                                    <exclude>**/META-INF/versions/9/module-info*</exclude>
+                                    <exclude>**/license/LICENSE*</exclude>
+                                    <exclude>**/license/NOTICE</exclude>
+                                    <exclude>**/license/README*</exclude>
+                                </excludes>
+                            </filter>
+                        </filters>
+                    </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-versions</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>3.6.3</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>${java.version}</version>
+                                </requireJavaVersion>
+                                <requireEnvironmentVariable>
+                                    <variableName>GRAALVM_HOME</variableName>
+                                </requireEnvironmentVariable>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <version>${maven-surefire-plugin.version}</version>
+              <configuration>
+                 <forkCount>3</forkCount>
+                  <reuseForks>true</reuseForks>
+                  <argLine>${jvm.add.opens}</argLine>
+              </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>native-simple</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>${native.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <fallback>false</fallback>
+                            <buildArgs>
+                                <arg>--static-nolibc</arg>
+                                <arg>--future-defaults=all</arg>
+                                <arg>--auto-fallback</arg>
+                                <arg>-Os</arg>
+                                <arg>-march=native</arg>
+                                <arg>-R:MaxHeapSize=400m</arg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>${native.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <fallback>false</fallback>
+                            <buildArgs>
+                                <!-- Graal VM specific options:
+                                    -H:DashboardDump=fortune -H:+DashboardAll
+                                    -H:+UnlockExperimentalVMOptions
+			            -H:AdvancedObfuscation=""
+                                    enable-sbom  => CycloneDX SBOM with 7 component(s) is embedded in binary (526B)
+                                    pgo / pgo-instrument
+                                    -march=compatibility
+                                    emit build-report
+                                    -Djava.awt.headless=false
+				                    -O3 generates a binary of 45M
+				                    -R:MaximumHeapSizePercent=20
+				                    gc=G1 => GRAAL VM specific option on Linux only
+
+                                    Building static executable images is only supported with musl libc.
+                                    Remove the 'static' option or add the 'libc=musl' option..
+                                -->
+                                <arg>--static-nolibc</arg>
+                                <arg>--gc=serial</arg>
+                                <arg>--future-defaults=all</arg>
+                                <arg>--auto-fallback</arg>
+                                <arg>-Os</arg>
+                                <arg>--emit build-report=report.html</arg>
+                                <arg>--pgo</arg>
+                                <arg>--enable-sbom=false</arg>
+                                <arg>-march=native</arg>
+                                <arg>-R:MaxHeapSize=400m</arg>
+                                <arg>--enable-monitoring=heapdump,jfr,jvmstat,jmxserver</arg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>graal-instrument</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>${native.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <fallback>false</fallback>
+                            <buildArgs>
+                                <arg>--static-nolibc</arg>
+                                <arg>--gc=serial</arg> <!-- gc=G1 => GRAAL VM specific param on Linux only -->
+                                <arg>--future-defaults=all</arg>
+                                <arg>--auto-fallback</arg>
+                                <arg>--pgo-instrument</arg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>native-liberica</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>${native.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <fallback>false</fallback>
+                            <buildArgs>
+                                <!-- Liberica VM specific options:
+                                    HEAP: Set max heap for improved and more predictable memory usage.
+                                    CPU:  Enable more CPU features with '-march=native' for improved performance.
+                                    Building static executable images is only supported with musl libc.
+                                    Remove the 'static' option or add the 'libc=musl' option..
+                                -->
+                                <arg>--static-nolibc</arg>
+                                <arg>--future-defaults=all</arg>
+                                <arg>--auto-fallback</arg>
+                                <arg>-Os</arg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

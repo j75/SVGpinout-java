@@ -1,0 +1,9 @@
+μ741,741_pinout,DIP8,logo_ti.png
+OFFSET_NULL,C,IN
+-INPUT,I,IN
++INPUT,I,IN
+V-,P
+OFFSET_NULL,C,IN
+OUTPUT,O,OUT
+V+,P
+NC,?,
