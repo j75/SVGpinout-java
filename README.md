@@ -5,6 +5,7 @@ with some small improvements:
 - pin size is augmented if the pin name length is more than 8 characters
 - power color for V+, Vdd...
 - GND pin is black with a white text
+- new pin type: **ANALOG**
 - several new options
 
 A chip package file is a CSV file that has the following structure:
@@ -49,7 +50,7 @@ $ ${GRAALVM_HOME}/bin/java \
   -agentlib:native-image-agent=config-output-dir=src/main/resources/META-INF/native-image/svgpinout/svgpinout/ \
   -jar target/svgpinout.jar <pinout csv file>
 ```
-Please also read[GraalVM Native Image Agent — reachability metadata: how to run it, where files go](https://dev.to/ozkanpakdil/graalvm-native-image-agent-reachability-metadata-how-to-run-it-where-files-go-45c1)
+Please also read [GraalVM Native Image Agent — reachability metadata: how to run it, where files go](https://dev.to/ozkanpakdil/graalvm-native-image-agent-reachability-metadata-how-to-run-it-where-files-go-45c1)
 
 ## Running the artifacts
 To run the executable jar:
@@ -66,7 +67,7 @@ The following options are supported:
 - **-l** | **--logodir** `<logodir>` = alternate logos directory
 - **-n** | **--nologo** = no logo embedded in the SVG file (useful for comparison with the Python version that does not insert the logo)
 - **-p** | **--packages** `<alternate packages.csv file>` = if you have a new package, you may describe it here
-- **-d** | **--display** = display packages.csv
+- **-d** | **--display** = display embedded **packages.csv**
 - **-b** | **--loop** = run in loop
 - **-r** | **--repeat** <# of times> (should be > 0)
 - **-s** | **--statistics** = at the end display some statistics
@@ -90,3 +91,15 @@ The **-b** option enable running the application in a loop; using startup option
 one could use **jconsole** in order to display memory consumption etc...
 
 ## Benchmarks
+
+Comparing Python, Java and native was done on a folder containing 300 fake
+CSV chip files and using the script [benchmark.sh](src/main/shell/benchmark.sh);
+the result is ![here](img/python_java_native.png)
+Surprisingly, the Python version is the fastest and the native the slowest!
+
+Comparing only the Java jar and native versions (by running the application up to 1500 times on the same file) using the [plot-java_native.sh](src/main/shell/plot-java_native.sh) script one may notice that native version is faster for about 500
+loops - after, running `java -jar` is faster!
+
+![java_native-1500.png](img/java_native-1500.png)
+
+I cannot explain the results, unless if my scripts are somehow flawed.
