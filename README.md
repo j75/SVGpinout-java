@@ -24,7 +24,7 @@ I also compared the native  executable with the Python and Java versions.
 1. [Graal VM](https://www.graalvm.org/) or [Liberica Native Image Kit](https://bell-sw.com/pages/downloads/native-image-kit/#nik-25-(jdk-25))
 variant, version >= 25
 2. The environment variable `GRAALVM_HOME` defined
-3[Maven](https://maven.apache.org/) version >= 3.6.3
+3. [Maven](https://maven.apache.org/) version >= 3.6.3
 
 ### Checking requirements
 - dependencies versions checking: `mvn versions:display-dependency-updates`
