@@ -92,9 +92,8 @@ one could use **jconsole** in order to display memory consumption etc...
 
 ## Benchmarks
 
-Comparing Python, Java and native was done on a folder containing 300 fake
-CSV chip files and using the script [benchmark.sh](src/main/shell/benchmark.sh);
-the result is ![here](img/python_java_native.png)
+Comparing Python (3.12.3), Java and native (on an Ubuntu 24.04 Linux system) was done on a folder containing 300 fake CSV chip files and using the script [benchmark.sh](src/main/shell/benchmark.sh)
+ - the result is ![here](img/python_java_native.png)
 Surprisingly, the Python version is the fastest and the native the slowest!
 
 Comparing only the Java jar and native versions (by running the application up to 1500 times on the same file) using the [plot-java_native.sh](src/main/shell/plot-java_native.sh) script one may notice that native version is faster for about 500
