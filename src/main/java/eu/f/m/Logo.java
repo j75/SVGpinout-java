@@ -7,8 +7,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.util.Base64;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Get logo file content
@@ -17,11 +17,20 @@ import java.util.Optional;
 class Logo {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    private static final Map<String,LogoImage> CACHE = new ConcurrentHashMap<>();
+
     private final File logoDir;
     private final Tika tika;
+    private final boolean withCache;
 
-    public Logo(File logoDir) {
+    /**
+     *
+     * @param withCache {@code boolean} true if it will try to get the logo image from cache
+     * @param logoDir {@link File} alternate logo files directory
+     */
+    public Logo(boolean withCache, File logoDir) {
         this.logoDir = logoDir;
+        this.withCache = withCache;
         try {
             tika = new Tika(TikaConfig.getDefaultConfig());
         } catch (RuntimeException e) {
@@ -30,19 +39,27 @@ class Logo {
         }
     }
 
+    /**
+     *
+     * @param logoDir {@link File} alternate logo files directory
+     */
+    public Logo(File logoDir) {
+        this (false, logoDir);
+    }
+
     String getBase64Data(LogoImage image) {
         if (image == null) {
             logger.warn("no image to process!");
             return null;
         }
         String mimeType = image.mimeType();
-        byte[] buffer = image.content();
         if (mimeType == null || mimeType.isBlank()) {
             logger.warn("no MIME type!");
             return null;
         }
         logger.debug("MIME type = {}", mimeType);
         if ("image/jpeg".equals(mimeType) || "image/png".equals(mimeType)) {
+            byte[] buffer = image.content();
             if (buffer != null && buffer.length > 8) {
                 StringBuilder sb = new StringBuilder();
                 byte[] content64 = Base64.getEncoder().encode(buffer);
@@ -62,6 +79,22 @@ class Logo {
             logger.info("no logo defined!");
             return Optional.empty();
         }
+        if (withCache && CACHE.containsKey(logoFile)) {
+            return Optional.of(CACHE.get(logoFile));
+        }
+        LogoImage logoImage = getLogoFileContent(logoFile);
+        if (logoImage == null) {
+            return Optional.empty();
+        }
+        if (withCache) {
+            CACHE.putIfAbsent(logoFile, logoImage);
+            logger.debug("Cache now has {} entries", CACHE.size());
+        }
+        return Optional.of(logoImage);
+    }
+
+    private LogoImage getLogoFileContent (String logoFile) {
+
         logger.debug("searching logo '{}'", logoFile);
         byte[] fileContent;
          if (logoDir == null) {
@@ -76,7 +109,7 @@ class Logo {
                         fileContent = baos.toByteArray();
                         String mimeType = tika.detect(fileContent);
                         logBufSize (logoFile, fileContent.length);
-                        return fileContent.length > 0 ? Optional.of(new LogoImage(fileContent, mimeType)) : Optional.empty();
+                        return fileContent.length > 0 ? new LogoImage(fileContent, mimeType) : null;
                     }
                 }
             } catch (IOException e) {
@@ -90,12 +123,12 @@ class Logo {
                 fileContent = Files.readAllBytes(logo.toPath());
                 String mimeType = tika.detect(fileContent);
                 logBufSize (logo.getAbsolutePath(), fileContent.length);
-                return fileContent.length > 0 ? Optional.of(new LogoImage(fileContent, mimeType)) : Optional.empty();
+                return fileContent.length > 0 ? new LogoImage(fileContent, mimeType) : null;
             } catch (IOException e) {
                 warn (logoFile, e);
             }
         }
-        return Optional.empty();
+        return null;
     }
 
     private void warn (String logoFile, Exception e) {

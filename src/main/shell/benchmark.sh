@@ -166,7 +166,7 @@ build_tarball()
   else
     tar czf "${mydir}"/test_csv_"${NBCHIPS}".tgz csv
   fi
-  popd popd
+  popd > /dev/null
   exit 0
 }
 
