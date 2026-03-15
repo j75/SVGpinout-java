@@ -25,7 +25,7 @@ class Chip {
     List<Pin> pins;
 
     /**
-     * First chip CSV line: Chip name, output file name, package, logo file name
+     * First chip CSV line: Chip name, output SVG file name, package, logo file name
      * All other lines: Pin name, Type, Direction (IN, OUT, BIDIR, or nothing).
      * <br/>
      * May throw an {@link IllegalArgumentException}.
@@ -87,8 +87,8 @@ class Chip {
             logger.debug("no logo file declared!");
         }
         pins = new ArrayList<>();
-        for (int i = 0; i < lines.size (); i++) {
-            pins.add(new Pin(lines.get(i)));
+        for (String[] line : lines) {
+            pins.add(new Pin(line));
         }
     }
 

@@ -10,6 +10,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.io.*;
+import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 
@@ -18,7 +19,7 @@ import static org.apache.batik.util.SVGConstants.*;
 /**
  * @author Marian-N. I.
  */
-class BatikDrawChip extends AbstractDrawChipSVG {
+class BatikDrawChip {
     /**
      * Original Python code defines the text with {@literal style="font-size:50px; font-family:Verdana"}
      * but we may also use {@literal font-size="50" font-weight="bold" font-family="Verdana"}
@@ -30,34 +31,124 @@ class BatikDrawChip extends AbstractDrawChipSVG {
     private static final DOMImplementation DOM_IMPL = SVGDOMImplementation.getDOMImplementation();
     private static final String GND = "GND";
 
-    private final ICPackages allPackages;
+    private static final int corner_margin = 40;
+    private static final int pin_length = 80;
+    private static final int font_size = 16;
+
+    private static final String NOT_CONNECTED = "NC";
+
+    private static final String PIN_FONT_NAME = "Bitstream Vera Sans Mono";
+    private static final String CHIP_FONT_NAME = "Verdana Sans Mono";
+
+    static final int pin_width = 20;
+    static final int arrow_length = pin_width / 2;
+
     private final Document document;
-    private Chip chip;
 
-    BatikDrawChip (ICPackages icPackages) {
-        allPackages = Objects.requireNonNull(icPackages, "no packages defined!");
+    private ICPackages allPackages;
+    private File outputDir;
+    private File logoDir;
+    private boolean withCache = false;
+    /**
+     * used in benchmark to compare with the Python version, where logo is not embedded
+     */
+    private boolean hasLogo = true;
 
+    BatikDrawChip () {
         // Create an SVG document
         document = DOM_IMPL.createDocument(SVG_NAMESPACE_URI, SVG_SVG_TAG,null);
         document.setXmlStandalone(true);
     }
 
+    BatikDrawChip (BatikDrawChip drawChip) {
+        this ();
+        this.allPackages = drawChip.allPackages;
+        this.outputDir = drawChip.outputDir;
+        this.logoDir = drawChip.logoDir;
+        this.hasLogo = drawChip.getUseLogo();
+        this.withCache = drawChip.getUseCache();
+    }
+
     @Override
-    void setChipFile(File chipFile) {
+    public String toString() {
+        StringJoiner stringJoiner = new StringJoiner(", ", BatikDrawChip.class.getSimpleName() + "[", "]")
+                .add("document = " + document)
+                .add("allPackages = " + allPackages)
+                .add("withCache? " + withCache);
+
+        if (outputDir != null) {
+            stringJoiner.add("outputDir = " + outputDir);
+        }
+        if (hasLogo) {
+            if (logoDir != null) {
+                stringJoiner.add("logoDir = '").add(logoDir.getAbsolutePath()).add("'");
+            }
+        } else {
+            stringJoiner.add("no logo in SVG");
+        }
+
+        return stringJoiner.toString();
+    }
+
+    void setChipPackages (ICPackages icPackages) {
+        allPackages = Objects.requireNonNull(icPackages, "no packages defined!");
+    }
+
+    /**
+     *
+     * @param outputDirName {@link String}
+     */
+    void setOutputDir(String outputDirName) {
+        String dir = Objects.requireNonNull(outputDirName, "folder should not be null!");
+        outputDir = new File(dir);
+        if (!outputDir.canWrite()) {
+            logger.warn("cannot write to '{}' folder", outputDir.getAbsolutePath());
+            throw new IllegalArgumentException("cannot write to output folder");
+        }
+    }
+
+    /**
+     *
+     * @param newLogosDir {@link String}
+     */
+    void setLogoDir(String newLogosDir) {
+        File dir = new File (newLogosDir);
+        if (dir.isDirectory() && dir.canRead()) {
+            logger.debug("will search logos in the '{}' folder", dir.getAbsolutePath());
+            logoDir = dir;
+        }
+        else {
+            logger.warn("bad logos folder '{}'", dir.getAbsolutePath());
+            throw new IllegalArgumentException("bad logos folder!");
+        }
+    }
+
+    void setNoLogo() {
+        hasLogo = false;
+    }
+
+    boolean getUseLogo () {
+        return hasLogo;
+    }
+
+    void useCache() {
+        withCache = true;
+    }
+
+    boolean getUseCache () {
+        return withCache;
+    }
+
+    /**
+     * Generate SVG file
+     */
+    void generate(File chipFile) {
         File cf = Objects.requireNonNull(chipFile, "no chip file!");
         if (!cf.canRead()) {
             logger.warn("cannot read chip file '{}'!", cf.getAbsolutePath());
             throw new IllegalArgumentException("cannot read chip file!");
         }
-        chip = new Chip(cf, allPackages);
-    }
-
-    @Override
-    void generate() {
-        if (chip == null) {
-            logger.warn("chip not defined!");
-            return;
-        }
+        Chip chip = new Chip(cf, allPackages);
         ICPackage chipPackage = chip.getICPackage();
         logger.debug("chip package = {}", chipPackage);
 
@@ -120,13 +211,15 @@ class BatikDrawChip extends AbstractDrawChipSVG {
 
         float markings_x = (float)(chip_x + chip_w * 0.2);
         float markings_y = (float)(maxPinSize + arrow_length + chip_h * 0.1);
-        // Logo, if present
-        Logo logoImage = new Logo(logoDir);
         double sizeY = chip_h * 0.4;
-        double sizeX = chip_w * 0.4;
-        //double[] markingsY = new double[] { (maxPinSize + arrow_length + chip_h * 0.66)};
-        logoImage.getFileContent(chip.getLogoFile())
-                .ifPresent(i -> addLogoImage(svgDoc, logoImage, i, markings_x, markings_y + 5, sizeX, sizeY));
+        if (hasLogo) {
+            // Logo, if present
+            Logo logoImage = new Logo(withCache, logoDir);
+
+            double sizeX = chip_w * 0.4;
+            logoImage.getFileContent(chip.getLogoFile())
+                    .ifPresent(i -> addLogoImage(svgDoc, logoImage, i, markings_x, markings_y + 5, sizeX, sizeY));
+        }
 
         double markingsY = markings_y + sizeY + chipNameFontSize;
         // Chip name
@@ -285,22 +378,39 @@ class BatikDrawChip extends AbstractDrawChipSVG {
         }
     }
 
-    @Override
-    public String toString() {
-        StringJoiner stringJoiner = new StringJoiner(", ", getClass().getName() + "[", "]")
-                .add("chip = " + chip);
-
-        if (hasLogo) {
-            if (logoDir != null) {
-                stringJoiner.add(", logos folder = '").add(logoDir.getAbsolutePath()).add("'");
+    /**
+     *
+     * @param pins {@link List} of {@link Pin}
+     * @return maximum text length to be written as pin name
+     */
+    int getMaxPinNameLength(List<Pin> pins) {
+        if (pins == null || pins.isEmpty()) {
+            return 0;
+        }
+        int lenMax = 0;
+        for (int i = 0; i < pins.size(); i++) {
+            Pin pin = pins.get(i);
+            if (pin.getName().length() > lenMax) {
+                logger.trace("index = {} '{}'.length() = {}", i, pin.getName(), pin.getName().length());
+                lenMax = pin.getName().length();
             }
-        } else {
-            stringJoiner.add(", no logo in SVG");
         }
-        if (outputDir != null) {
-            stringJoiner.add(", output folder = '").add (outputDir.getAbsolutePath()).add ("'");
+        return lenMax;
+    }
+    /*** Private methods ***/
+
+    private File getSvgFileName(String outputFile) {
+        File svgFile;
+        String pathname = outputFile.endsWith(".svg") ? outputFile : outputFile + ".svg";
+        if (outputDir != null && outputDir.isDirectory() && outputDir.canWrite()) {
+            logger.debug("SVG file will be generated in folder '{}'", outputDir.getAbsolutePath());
+            svgFile = new File(outputDir.getAbsolutePath(), pathname);
         }
-        return stringJoiner.toString();
+        else {
+            svgFile = new File(pathname);
+        }
+        logger.debug("write SVG to '{}' file", svgFile.getAbsolutePath());
+        return svgFile;
     }
 
     //

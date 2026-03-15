@@ -7,7 +7,11 @@ fi
 
 # grep '^|' README.md  | tr '|' ' ' > py_java_native.dat
 
-_dat_file='py_java_native.dat'
+if [ $# -gt 0 ]; then
+     _dat_file=$1
+else
+    _dat_file='py_java_native.dat'
+fi
 
 if [ ! -r "$_dat_file" ]; then
     echo "Cannot read '$_dat_file' file"

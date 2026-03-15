@@ -55,23 +55,27 @@ Please also read [GraalVM Native Image Agent — reachability metadata: how to r
 ## Running the artifacts
 To run the executable jar:
 ```shell
-$ java -jar target/svgpinout-jar-with-dependencies.jar <csv file>
+$ java -jar target/svgpinout-jar-with-dependencies.jar <options> <csv file>
 ```
 or the native binary:
 ```shell
-$ target/svgpinout <csv file>
+$ target/svgpinout <options> <csv file>
 ```
 
 The following options are supported:
-- **-o** | **--outdir** `<outdir>` = SVG file output directory(otherwise the current folder will be used)
+- **-o** | **--outdir** `<outdir>` = SVG file output directory (otherwise the current folder will be used)
 - **-l** | **--logodir** `<logodir>` = alternate logos directory (if a new chip requires it)
 - **-n** | **--nologo** = no logo embedded in the SVG file (useful for comparison with the Python version that does not insert the logo)
-- **-p** | **--packages** `<alternate packages.csv file>` = if you have a new package, you may describe it here
+- **-p** | **--packages** `<alternate packages.csv file>` = if you have a new package, you may describe it in a file
 - **-d** | **--display** = display embedded **packages.csv** content
-- **-b** | **--loop** = run in loop (useful to see if there are memory leaks)
+- **-b** | **--loop** = run forever in loop (useful to see if there are memory leaks)
 - **-r** | **--repeat** <# of times> (should be > 0)
 - **-s** | **--statistics** = display some statistics after finishing the program execution
-- **-h** | **--help** = display this help
+- **-h** | **--help** = display help
+
+The version 2 adds the following new ooptions:
+- **-c** | **--cache** = cache logo file (for loop, repeats or folder processing)
+- **-x** | **--execution** `<mode>` where mode is one of `par`, `fut` or `ser` i.e. paralellized, using CompletableFuture or serial (default)
 
 To display more debug messages, add the option `-Dorg.slf4j.simpleLogger.defaultLogLevel=debug`.
 Other options for `SLF4J simple`:
@@ -96,9 +100,15 @@ Comparing Python (3.12.3), Java and native (on an Ubuntu 24.04 Linux system) was
  - the result is ![here](img/python_java_native.png)
 Surprisingly, the Python version is the fastest and the native the slowest!
 
-Comparing only the Java jar and native versions (by running the application up to 1500 times on the same file) using the [plot-java_native.sh](src/main/shell/plot-java_native.sh) script one may notice that native version is faster for about 500
-loops - after, running `java -jar` is faster!
+However, running a v2 optimized code (that uses caches for images and a parallel
+execution) provides completely different result and Java shows all its supremacy - here is
+the result: ![graph](img/python_java_native-o.png)
+The execution was performed using the `-c -x fut` options.
 
+Comparing only the Java jar and native versions (by running the application up to 1500 times on the same file) using the [plot-java_native.sh](src/main/shell/plot-java_native.sh) script one may notice that native version is faster for about 500 loops - after, the pure Java version is faster!
+
+The script [plot-java_native.sh](src/main/shell/plot-java_native.sh) compares the Java and native executions
+by running a conversion several times over the same input file, the results are:
 ![java_native-1500.png](img/java_native-1500.png)
 
-I cannot explain the results, unless if my scripts are somehow flawed!
+After a certain threshold, the Java version seems faster - probably because internally it performs some dynamically optimizations.

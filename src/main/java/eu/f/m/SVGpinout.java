@@ -9,7 +9,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * @author Marian-N. I.
@@ -17,6 +17,15 @@ import java.util.concurrent.TimeUnit;
 public class SVGpinout {
     private static final Logger LOGGER = LoggerFactory.getLogger(SVGpinout.class);
     private static final long ONE_MEGA = 1024L * 1024L;
+
+    /**
+     * Execution mode
+     */
+    private enum ExecMode {
+        SERIAL,
+        PARALLEL,
+        FUTURES
+    }
 
     static void main(String... args) throws ParseException {
         if (args.length == 0) {
@@ -28,11 +37,13 @@ public class SVGpinout {
         options.addOption("o", "outdir", true, "output folder")
                 .addOption("l", "logodir", true, "Logos folder")
                 .addOption("n", "nologo", false, "no logo in output file")
+                .addOption("c", "cache", false, "cache logo file")
                 .addOption("h", "help", false, "print help")
                 .addOption("p", "packages", true, "alternate packages.csv file")
                 .addOption("d", "display", false, "display packages.csv file")
                 .addOption("b", "loop", false, "run in loop")
                 .addOption("r", "repeat", true, "repeat 'x' times")
+                .addOption("x", "execution", true, "parallel or serial (default) folder processing")
                 .addOption("s", "statistics", false, "statistics");
         // Create a parser
         CommandLineParser parser = new DefaultParser();
@@ -54,11 +65,16 @@ public class SVGpinout {
         boolean display = cmd.hasOption('d');
         if (cmd.hasOption('p')) {
             String packagesFile = cmd.getOptionValue('p');
-            LOGGER.debug("will use the alternate packages file {}", packagesFile);
+            LOGGER.info("will use the alternate packages file {}", packagesFile);
             packages = new ICPackages(packagesFile, display);
         } else {
             packages = new ICPackages(display);
         }
+        if (packages.getNbOfPackages() < 1) {
+            LOGGER.warn ("No package definitions found!");
+            System.exit(2);
+        }
+
         int nbTimes = 1;
         if (cmd.hasOption('r')) {
             int nbRepeats = Integer.parseInt(cmd.getOptionValue('r'));
@@ -67,12 +83,22 @@ public class SVGpinout {
                 LOGGER.info("will run {} times", nbTimes);
             }
         }
-        if (packages.getNbOfPackages() < 1) {
-            LOGGER.warn ("No package definitions found!");
-            System.exit(2);
+
+        ExecMode mode = ExecMode.SERIAL;
+        if (cmd.hasOption('x')) {
+            String execOption = cmd.getOptionValue('x');
+            mode = parseExecModeOption (execOption);
         }
+
         boolean loop = cmd.hasOption('b');
-        LOGGER.debug("run in loop ? {}", loop);
+        if (loop) {
+            LOGGER.info("will run in loop");
+        }
+        boolean cache = cmd.hasOption('c');
+        if (cache) {
+            LOGGER.info("will cache logo file(s)");
+        }
+
         boolean stats = cmd.hasOption('s');
         long start = 0;
         MemoryMXBean memoryBean = null;
@@ -82,7 +108,7 @@ public class SVGpinout {
         }
         try {
             do {
-                run(packages, cmd, fileOrDir);
+                run(packages, cmd, fileOrDir, mode, cache);
                 if (loop) {
                     LOGGER.trace("running in loop");
                 } else {
@@ -149,66 +175,132 @@ public class SVGpinout {
     }
 
     private static void usage() {
-        LOGGER.info("Usage: {} [options] <CSV file or directory>",
-                SVGpinout.class.getName().toLowerCase());
-        LOGGER.info("  If filename is 'all' then a folder named 'csv' will be used");
-        LOGGER.info("");
-        LOGGER.info("Possible options are:");
-        LOGGER.info("         [-o | --outdir <output directory>]");
-        LOGGER.info("         [-l | --logodir <logos directory>]");
-        LOGGER.info("         [-n | --nologo]");
-        LOGGER.info("         [-p | --packages <alternate packages.csv file>]");
-        LOGGER.info("         [-d | --display <packages.csv file>]");
-        LOGGER.info("         [-s | --statistics]");
-        LOGGER.info("         [-b | --loop]");
-        LOGGER.info("         [-r | --repeat <# of times> (should be > 0)]");
-        LOGGER.info("         [-h | --help] => display this help");
-        LOGGER.info("");
-        LOGGER.info("To increase log details add '-Dorg.slf4j.simpleLogger.defaultLogLevel=debug' option");
+        IO.println(String.format ("Usage: %s [options] <CSV file or directory>", SVGpinout.class.getName().toLowerCase()));
+        IO.println("  If filename is 'all' then a folder named 'csv' will be used");
+        IO.println("");
+        IO.println("Possible options are:");
+        IO.println("         [-o | --outdir <output directory>]");
+        IO.println("         [-l | --logodir <logos directory>]");
+        IO.println("         [-n | --nologo]");
+        IO.println("         [-p | --packages <alternate packages.csv file>]");
+        IO.println("         [-d | --display <packages.csv file>]");
+        IO.println("         [-s | --statistics]");
+        IO.println("         [-b | --loop]");
+        IO.println("         [-r | --repeat <# of times> (should be > 0)>");
+        IO.println("         [-x | --execution <mode>: only for folder processing");
+        IO.println("                     mode is one of 'par', 'fut' or 'ser'");
+        IO.println("                     'par' => parallel, 'fut' => using CompletableFuture, 'ser' => serial (default)");
+        IO.println("         [-c | --cache] use logos cache (for loop, repeats or folder processing)");
+        IO.println("         [-h | --help] => display this help");
+        IO.println("");
+        IO.println("To increase log details add '-Dorg.slf4j.simpleLogger.defaultLogLevel=debug' option");
         System.exit(3);
     }
 
-    private static void run (ICPackages packages, CommandLine cmd, File fileOrDir)
+    private static void run (ICPackages packages, CommandLine cmd, File fileOrDir, ExecMode mode, boolean cache)
     {
-        AbstractDrawChipSVG drawChip = new BatikDrawChip(packages);
+        BatikDrawChip drawChip = new BatikDrawChip();
+        if (cache) {
+
+            drawChip.useCache();
+        }
         if (cmd.hasOption('o')) {
             String outDir = cmd.getOptionValue('o');
-            LOGGER.debug("output directory = '{}'", outDir);
+            LOGGER.info("output directory = '{}'", outDir);
             drawChip.setOutputDir(outDir);
         }
         if (cmd.hasOption('n')) {
-            LOGGER.debug("no logo file will be used");
+            LOGGER.info("no logo file will be used");
             drawChip.setNoLogo ();
         } else {
             if (cmd.hasOption('l')) {
                 String logosDir = cmd.getOptionValue('l');
-                LOGGER.debug("will use the alternate logos directory '{}'", logosDir);
+                LOGGER.info("will use the alternate logos directory '{}'", logosDir);
                 drawChip.setLogoDir(logosDir);
             }
         }
+        drawChip.setChipPackages(packages);
 
         if (fileOrDir.isFile()) {
-                drawChip.setChipFile(fileOrDir);
-                drawChip.generate();
+            drawChip.generate(fileOrDir);
         } else if (fileOrDir.isDirectory()) {
             File[] files = fileOrDir.listFiles();
             if (files == null || files.length < 1) {
                 LOGGER.warn("Folder '{}' is empty!", fileOrDir.getAbsolutePath());
                 return;
             }
-            for (File chipFile : files) {
-                if (chipFile.isDirectory()) {
-                    LOGGER.warn("'{}' is directory, skipping", chipFile.getAbsolutePath());
-                    continue;
-                }
-                LOGGER.trace("processing file '{}'", chipFile.getAbsolutePath());
-                try {
-                    drawChip.setChipFile(chipFile);
-                    drawChip.generate();
-                } catch (RuntimeException e) {
-                    LOGGER.warn("cannot process file '{}': {}", chipFile.getAbsolutePath(), e.getMessage());
-                }
+            LOGGER.info("will execute in {} mode", mode);
+            switch (mode) {
+                case PARALLEL -> processDirectoryParallel(files, drawChip);
+                case FUTURES -> processDirectoryExecutor (files, drawChip);
+                default -> processDirectorySerial (files, drawChip);
             }
         }
+    }
+
+    private static void processDirectorySerial(File[] files, BatikDrawChip batikDrawChip) {
+         for (File chipFile : files) {
+             if (chipFile.isDirectory()) {
+                 warnDirectory (chipFile);
+             } else {
+                 LOGGER.trace("processing file '{}'", chipFile.getAbsolutePath());
+                 BatikDrawChip drawChip = new BatikDrawChip(batikDrawChip);
+                 drawChip.generate(chipFile);
+             }
+         }
+    }
+
+    private static void processDirectoryParallel(File[] files, BatikDrawChip batikDrawChip) {
+        Arrays.stream(files).parallel().filter(f -> {
+                    if (f.isDirectory()) {
+                        warnDirectory (f);
+                        return false;
+                    }
+                    return true;
+                })
+                .forEach(f -> {
+                    BatikDrawChip drawChip = new BatikDrawChip(batikDrawChip);
+                    drawChip.generate(f);
+                });
+    }
+
+    private static void processDirectoryExecutor(File[] files, BatikDrawChip batikDrawChip) {
+        try (ExecutorService execService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())) {
+            CompletableFuture<?>[] futures = Arrays.stream(files).filter(f -> {
+                if (f.isDirectory()) {
+                    warnDirectory (f);
+                    return false;
+                }
+                return true;
+            }).map(f -> (Runnable) () -> {
+                BatikDrawChip drawChip = new BatikDrawChip(batikDrawChip);
+                drawChip.generate(f);
+            }).toList()
+                    .stream()
+                    .map(task -> CompletableFuture.runAsync(task, execService))
+                    .toArray(CompletableFuture[]::new);
+            CompletableFuture.allOf(futures).join();
+            execService.shutdown();
+        } catch (RuntimeException e) {
+            LOGGER.warn("error executing tasks!", e);
+        }
+    }
+
+    private static ExecMode parseExecModeOption(String execOption) {
+        LOGGER.debug("execution mode = '{}'", execOption);
+        if (execOption == null || execOption.isBlank()) {
+            return ExecMode.SERIAL;
+        }
+        if (execOption.toLowerCase().startsWith("par")) {
+            return ExecMode.PARALLEL;
+        }
+        if (execOption.toLowerCase().startsWith("fut")) {
+            return ExecMode.FUTURES;
+        }
+        return ExecMode.SERIAL;
+    }
+
+    private static void warnDirectory (File d) {
+        LOGGER.warn("'{}' is directory, skipping", d.getAbsolutePath());
     }
 }

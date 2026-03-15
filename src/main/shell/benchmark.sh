@@ -4,10 +4,13 @@ set -e
 
 DEBUG=0
 
+OPTIMIZE=0
+
 SCRIPT_NAME=$(basename "$(realpath "$0")" )
 SVGPBM_TDIR=$(mktemp --tmpdir -d "${SCRIPT_NAME}"-XXXX)
 PKGS_FILE='src/main/resources/packages.csv'
 readonly PIN_TYPES=("A" "C" "D" "G" "I" "K" "M" "O")
+readonly LOGOS=("motorola" "nec" "sanyo" "snk" "ti" "yamaha" "zilog")
 NBCHIPS=100
 readonly PERF_REPEAT_NB=1
 
@@ -22,14 +25,16 @@ msg()
 
 usage()
 {
-    echo "$0 [-v | -h | -t] <nb. of chip files>"
+    echo "$0 [-v | -h | -p | -t] <nb. of chip files>"
     echo "  where"
     echo "    -v => verbose"
-    echo "    -h => help"
     echo "    -t => create test tarball of csv files"
+    echo "    -o => run Java optimisations"
+    echo "    -h => help (this message)"
+
 }
 
-# reate_csv_files <nb. chips>
+# create_csv_files <nb. chips>
 create_csv_files()
 {
   local _nbchips=$1
@@ -53,13 +58,17 @@ create_csv_files()
   msg "  # of pins:"
   msg " ${nb_pins[*]}"
 
+  _nblogos=${#LOGOS[@]}
+  msg "Nb. of logos = $_nblogos"
   for i in $(seq "$_nbchips"); do
     _chip_file="${SVGPBM_TDIR}"/csv/chip-"$i".csv
     _idx_chip=$((i-1))
     _idx_chip=$((_idx_chip%${#chips_arr[@]}))
     _chip_case=${chips_arr[$_idx_chip]}
     _nb_pins=${nb_pins[$_idx_chip]}
-    echo fake-"${i}",fake-"${i}"_pinout,"${_chip_case}",logo_sanyo.png > "$_chip_file"
+    _idx_logo=$((_idx_chip%_nblogos))
+    _logo=${LOGOS[$_idx_logo]}
+    echo "fake-${i},fake-${i}_pinout,${_chip_case},logo_${_logo}.png" > "$_chip_file"
     echo "VCC,P" >> "$_chip_file"
     echo "GND,P" >> "$_chip_file"
     #msg "index of chip = $_idx_chip case = $_chip_case nb. pins = $_nb_pins"
@@ -117,22 +126,35 @@ benchmark_python()
 
 benchmark_jar()
 {
-
-  echo "Results of the Java jar execution"
-  sudo chrt -f 99 perf stat -r "$PERF_REPEAT_NB" -d \
-    "${JAVA_HOME}"/bin/java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn \
-    -jar ./target/svgpinout.jar -o "${SVGPBM_TDIR}"/svg "${SVGPBM_TDIR}"/csv
+  if [ $OPTIMIZE -gt 0 ]; then
+    echo "Results of the Java jar execution (cache + CompletableFuture)"
+    sudo chrt -f 99 perf stat -r "$PERF_REPEAT_NB" -d \
+          "${JAVA_HOME}"/bin/java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn \
+          -jar ./target/svgpinout.jar -c -o "${SVGPBM_TDIR}"/svg -x fut "${SVGPBM_TDIR}"/csv
+  else
+    echo "Results of the Java jar execution"
+    sudo chrt -f 99 perf stat -r "$PERF_REPEAT_NB" -d \
+      "${JAVA_HOME}"/bin/java -Dorg.slf4j.simpleLogger.defaultLogLevel=warn \
+      -jar ./target/svgpinout.jar -o "${SVGPBM_TDIR}"/svg "${SVGPBM_TDIR}"/csv
+  fi
   echo "---------------"
   rm -rf svg/*
 }
 
 benchmark_bin()
 {
-  echo "Results of the native executable"
+  if [ $OPTIMIZE -gt 0 ]; then
+    echo "Results of the native executable (cache + CompletableFuture)"
+    sudo chrt -f 99 perf stat -r "$PERF_REPEAT_NB" -d \
+        ./target/svgpinout -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -n \
+        -o "${SVGPBM_TDIR}"/svg -c -x fut "${SVGPBM_TDIR}"/csv
+  else
+    echo "Results of the native executable"
     #time \
-  sudo chrt -f 99 perf stat -r "$PERF_REPEAT_NB" -d \
-    ./target/svgpinout -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -n \
-    -o "${SVGPBM_TDIR}"/svg "${SVGPBM_TDIR}"/csv
+    sudo chrt -f 99 perf stat -r "$PERF_REPEAT_NB" -d \
+      ./target/svgpinout -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -n \
+      -o "${SVGPBM_TDIR}"/svg "${SVGPBM_TDIR}"/csv
+  fi
   echo "---------------"
 }
 
@@ -173,10 +195,11 @@ build_tarball()
 main () {
   local create_tarball='n'
 
-  while getopts "htv" arg; do
+  while getopts "htvo" arg; do
     case $arg in
       t) create_tarball='y' ;;
       v) DEBUG=1 ;;
+      o) OPTIMIZE=1 ;;
       h) usage; exit 0 ;;
       *) usage; exit 1 ;;
     esac

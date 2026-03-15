@@ -22,13 +22,14 @@ class BatikDrawChipTest {
     @TempDir
     Path outputFolder;
 
-    private AbstractDrawChipSVG drawChip;
+    private BatikDrawChip drawChip;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.initMocks(this);
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "trace");
-        drawChip = new BatikDrawChip(packages);
+        drawChip = new BatikDrawChip();
+        drawChip.setChipPackages(packages);
     }
 
     /**
@@ -37,60 +38,56 @@ class BatikDrawChipTest {
     @Test
     void generate() {
        assertNotNull(drawChip);
-       RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.setChipFile(null));
+       RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.generate(null));
        assertTrue(thrown.getMessage().contains("no chip file"));
        ICPackage pack = new ICPackage("DIP8", 8,4,0,1,50,8,200,1);
        when (packages.getPackage(eq ("DIP8"))).thenReturn(Optional.of(pack));
        ClassLoader classLoader = getClass().getClassLoader();
        File csvFile = new File(Objects.requireNonNull(classLoader.getResource("741.csv")).getFile());
-       drawChip.setChipFile(csvFile);
        drawChip.setOutputDir(outputFolder.toFile().getAbsolutePath());
-       drawChip.generate();
+       drawChip.generate(csvFile);
        IO.println("SVG in folder" + outputFolder);
     }
 
     @Test
     void generateDummy() {
         assertNotNull(drawChip);
-        RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.setChipFile(null));
+        RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.generate(null));
         assertTrue(thrown.getMessage().contains("no chip file"));
         ICPackage pack = new ICPackage("QFP12", 12, 3, 3, 1, 50, 5, 50, 1);
         when (packages.getPackage(eq ("QFP12"))).thenReturn(Optional.of(pack));
         ClassLoader classLoader = getClass().getClassLoader();
         File csvFile = new File(Objects.requireNonNull(classLoader.getResource("dummy.csv")).getFile());
-        drawChip.setChipFile(csvFile);
         drawChip.setOutputDir(outputFolder.toFile().getAbsolutePath());
-        drawChip.generate();
+        drawChip.generate(csvFile);
         IO.println("SVG in folder" + outputFolder);
     }
 
     @Test
     void generateNeo() {
         assertNotNull(drawChip);
-        RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.setChipFile(null));
+        RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.generate(null));
         assertTrue(thrown.getMessage().contains("no chip file"));
         ICPackage pack = new ICPackage("QFP48", 48, 12, 12, 1, 40, 30, 0, 0.5f);
         when (packages.getPackage(eq ("QFP48"))).thenReturn(Optional.of(pack));
         ClassLoader classLoader = getClass().getClassLoader();
         File csvFile = new File(Objects.requireNonNull(classLoader.getResource("neo-buf.csv")).getFile());
-        drawChip.setChipFile(csvFile);
         drawChip.setOutputDir(outputFolder.toFile().getAbsolutePath());
-        drawChip.generate();
+        drawChip.generate(csvFile);
         IO.println("SVG in folder" + outputFolder);
     }
 
     @Test
     void generateDIP40() {
         assertNotNull(drawChip);
-        RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.setChipFile(null));
+        RuntimeException thrown = assertThrows(NullPointerException.class, () -> drawChip.generate(null));
         assertTrue(thrown.getMessage().contains("no chip file"));
         ICPackage pack = new ICPackage("DIP40", 40, 20, 0, 1, 45, 20, 300, 1.0f);
         when (packages.getPackage(eq ("DIP40"))).thenReturn(Optional.of(pack));
         ClassLoader classLoader = getClass().getClassLoader();
         File csvFile = new File(Objects.requireNonNull(classLoader.getResource("MMP1206.csv")).getFile());
-        drawChip.setChipFile(csvFile);
         drawChip.setOutputDir(outputFolder.toFile().getAbsolutePath());
-        drawChip.generate();
+        drawChip.generate(csvFile);
         IO.println("SVG in folder" + outputFolder);
     }
 
@@ -101,9 +98,8 @@ class BatikDrawChipTest {
         when (packages.getPackage(eq ("DIP14"))).thenReturn(Optional.of(pack));
         ClassLoader classLoader = getClass().getClassLoader();
         File csvFile = new File(Objects.requireNonNull(classLoader.getResource("test-colors.csv")).getFile());
-        drawChip.setChipFile(csvFile);
         drawChip.setOutputDir(outputFolder.toFile().getAbsolutePath());
-        drawChip.generate();
+        drawChip.generate(csvFile);
         IO.println("SVG in folder" + outputFolder);
     }
 
@@ -122,5 +118,16 @@ class BatikDrawChipTest {
             pins.add(pin);
         }
         assertEquals(nbPins, drawChip.getMaxPinNameLength(pins));
+    }
+
+    @Test
+    void copyConstructor() {
+        assertTrue (drawChip.getUseLogo ());
+        assertFalse (drawChip.getUseCache ());
+        BatikDrawChip batikDrawChip = new BatikDrawChip(drawChip);
+        assertTrue (batikDrawChip.getUseLogo ());
+        assertFalse (batikDrawChip.getUseCache ());
+        batikDrawChip.useCache();
+        assertTrue (batikDrawChip.getUseCache ());
     }
 }

@@ -7,6 +7,10 @@ fi
 
 DEBUG=0
 
+# OPTIMIZE=1 src/main/shell/plot-java_native.sh 1500 
+# journalctl -t $LOGNAME -f
+OPTIMIZE=${OPTIMIZE:-0}
+
 SCRIPT_NAME=$(basename "$(realpath "$0")" )
 WORKDIR=$(mktemp --tmpdir -d "${SCRIPT_NAME}"-XXXX)
 
@@ -48,11 +52,21 @@ fill_data()
   else
         incr=5
   fi
+
   for i in $(seq 1 $incr "$1"); do
         msg "# of iterations: $i"
-        # Java
-        _javadur=$(java "$LOGLEV" -jar target/svgpinout.jar -s -r "$i" -o /tmp "$TESTFILE" | grep msec | awk '{print $4/1000}')
-        _natdur=$(target/svgpinout "$LOGLEV" -s -r "$i" -o /tmp "$TESTFILE" | grep msec | awk '{print $4/1000}')
+        logger -t "$LOGNAME" -p user.info "OPTIMIZE = $OPTIMIZE, $iteration # $i"
+        if [ $OPTIMIZE -gt 0 ]; then
+            # Java
+          _javadur=$(java "$LOGLEV" -jar target/svgpinout.jar -s -c -x fut -r "$i" -o /tmp "$TESTFILE" | grep msec | awk '{print $4/1000}')
+          # Native
+          _natdur=$(target/svgpinout "$LOGLEV" -s -x fut -c -r "$i" -o /tmp "$TESTFILE" | grep msec | awk '{print $4/1000}')
+        else
+          # Java
+          _javadur=$(java "$LOGLEV" -jar target/svgpinout.jar -s -r "$i" -o /tmp "$TESTFILE" | grep msec | awk '{print $4/1000}')
+          # Native
+          _natdur=$(target/svgpinout "$LOGLEV" -s -r "$i" -o /tmp "$TESTFILE" | grep msec | awk '{print $4/1000}')
+        fi
         printf "%d %f %f\n" "$i" "$_javadur" "$_natdur" >> "$_dat_file"
   done
 }
@@ -94,4 +108,3 @@ main ()
 }
 
 main "$@"
-
