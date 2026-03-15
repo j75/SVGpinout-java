@@ -99,6 +99,7 @@ one could use **jconsole** in order to display memory consumption etc...
 Comparing Python (3.12.3), Java and native (on an Ubuntu 24.04 Linux system) was done on a folder containing 300 fake CSV chip files and using the script [benchmark.sh](src/main/shell/benchmark.sh)
  - the result is ![here](img/python_java_native.png)
 Surprisingly, the Python version is the fastest and the native the slowest!
+But please note that the Python code **does not** insert the logo in the SVG file while Java/native perform that.
 
 However, running a v2 optimized code (that uses caches for images and a parallel
 execution) provides completely different result and Java shows all its supremacy - here is
