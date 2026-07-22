@@ -28,6 +28,7 @@ class Chip {
      * First chip CSV line: Chip name, output SVG file name, package, logo file name
      * All other lines: Pin name, Type, Direction (IN, OUT, BIDIR, or nothing).
      * <br/>
+     * Comments: line that starts with {@literal #} or {@literal -}
      * May throw an {@link IllegalArgumentException}.
      * Parameters cannot be {@code null}.
      *
@@ -45,6 +46,11 @@ class Chip {
             while ((line = reader.readLine()) != null) {
                 if (line.isBlank()) {
                     logger.debug("blank line found");
+                    continue;
+                }
+
+                if (line.startsWith("#") || line.startsWith("-")) {
+                    logger.debug("comment line found");
                     continue;
                 }
                 logger.trace("line = '{}'", line);
@@ -102,10 +108,6 @@ class Chip {
 
     String getLogoFile() {
         return logoFile;
-    }
-
-    String getPackageName() {
-        return packageName;
     }
 
     List<Pin> getPins() {
