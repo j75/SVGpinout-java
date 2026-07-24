@@ -272,12 +272,15 @@
                                 <arg>--static-nolibc</arg>
                                 <arg>--gc=serial</arg>
                                 <arg>--future-defaults=all</arg>
-                                <arg>--auto-fallback</arg>
                                 <arg>-Os</arg>
                                 <arg>--emit build-report=report.html</arg>
                                 <arg>--pgo</arg>
                                 <arg>--enable-sbom=false</arg>
+				<!--
                                 <arg>-march=native</arg>
+				-->
+                                <arg>-march=compatibility</arg>
+                                <arg>--no-fallback</arg>
                                 <arg>-R:MaxHeapSize=400m</arg>
                                 <arg>--enable-monitoring=heapdump,jfr,jvmstat,jmxserver</arg>
                             </buildArgs>
